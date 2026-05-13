@@ -1,15 +1,23 @@
 import { notFound, redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { normalizeShortCode } from "@/lib/short-code";
 import { verifyClaimSchema } from "@/lib/ohm7/zod-schemas";
 import { writeAudit } from "@/lib/ohm7/audit";
+import { rateLimit } from "@/lib/ohm7/rate-limit";
 import { hashPassword, setSessionCookie, getCurrentUser } from "@/lib/auth";
 
 async function verifyClaim(formData: FormData) {
   "use server";
+  const ip = headers().get("x-forwarded-for") ?? "anon";
+  const claimIdRaw = String(formData.get("claimId") ?? "");
+  // Strict bucket: at most 10 verification attempts per claim per 5 min.
+  if (!(await rateLimit().check(`claim-verify:${claimIdRaw}:${ip}`, 10, 5 * 60_000))) {
+    redirect(`/claim/${formData.get("shortCode")}/verify?claimId=${claimIdRaw}&error=${encodeURIComponent("Too many attempts — try again later")}`);
+  }
   const parsed = verifyClaimSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
-    redirect(`/claim/${formData.get("shortCode")}/verify?claimId=${formData.get("claimId")}&error=${encodeURIComponent("Enter the 6-digit code")}`);
+    redirect(`/claim/${formData.get("shortCode")}/verify?claimId=${claimIdRaw}&error=${encodeURIComponent("Enter the 6-digit code")}`);
   }
   const { claimId, code } = parsed.data;
   const claim = await prisma.propertyClaim.findUnique({

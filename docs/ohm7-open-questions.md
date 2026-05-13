@@ -1,6 +1,6 @@
-# ohm7 — open questions (carried from v0.2 §10.2 and new MVP-era questions)
+# ohm7 — open questions
 
-## Carried from v0.2 §10.2
+## Carried from v0.2 §10.2 (still open after v0.3)
 
 - **Final brand name before sticker print.** "ohm7" is working — revisit once
   we hear it spoken aloud by an electrician and a landlord.
@@ -15,39 +15,51 @@
 - **Parcel / owner-of-record lookup source.** Out of scope for this MVP.
   Likely USPS + county GIS, but choice depends on geographic coverage we end
   up needing.
-- **WhatsApp / SMS provider choice.** MVP ships with a simulated provider.
-  Production wire-in is between Twilio and the internal SequenceNow MCP tool.
-  Provider abstraction is ready for either.
-- **AHJ / jurisdiction rules expansion.** The seed file covers NY State / NYC
-  / Nassau County. Full coverage is a structured-data ingestion task and is
-  not a single-developer week.
+- **WhatsApp / SMS provider choice.** v0.3 adds an explicit provider mode
+  (`simulated | twilio | sequencenow | disabled`), but the actual REST
+  implementations for Twilio and SequenceNow are still TODO. Pick one,
+  wire it, and decommission the simulated path for production.
+- **AHJ / jurisdiction rules expansion.** v0.3 seeds 9 states + NYC. Full
+  national coverage and per-jurisdiction NEC amendments is a structured-data
+  ingestion task — not a single-developer week.
 - **Whether InvoiceChats event coupling ships in Phase 3.** The
-  `ServiceEvent.source` enum already includes `invoicechats`, but the webhook
-  subscriber is not built. Decide after the first paying landlord onboards.
+  `ServiceEvent.source` enum already includes `invoicechats`, but the
+  webhook subscriber is not built. Decide after the first paying landlord
+  onboards.
 - **Whether photo storage ships in Phase 1 or Phase 2.** Currently we store
   a JSON array placeholder on `ServiceEvent.photos`. Wire-up to Floci S3 (or
   whatever bucket arch lands) is deferred.
 
-## New MVP-era questions
+## v0.2-era questions resolved in v0.3
 
-- **Tenant onboarding.** Today a tenant signs up freely and can create
-  requests against any known property ID. That's wrong long-term — we need a
-  formal "owner invites tenant to a unit" flow with a token. See the comment
-  in `app/dashboard/tenant/service-requests/new/page.tsx`.
-- **Multi-org / multi-tenant.** All rows carry `tenantId` per the house rule,
-  but there is no Org model yet. Confirm whether ohm7 should reuse the
-  existing org/membership tables in the shared 5090 cluster or run with
-  per-user defaults until we hit the first multi-user landlord.
-- **Pending owner shell users.** When a non-logged-in owner verifies a claim
-  we create a User with a random password. Decide whether to email a
-  password-set link, switch to magic-link login, or fall back entirely to
-  Auth0 once that integration ships.
-- **Public-link grants.** Schema supports `grantee_type=public_link` in v0.2
-  but the MVP only models user-targeted grants. Revisit when an inspector
-  or buyer needs a shareable URL.
-- **Rate limiting.** The in-memory bucket in `lib/ohm7/rate-limit.ts` is
-  fine for a single dev server. Replace with a real backing store before
-  multi-instance prod.
-- **Audit log retention / SOC 2 alignment.** We write an `AuditEvent` row
-  per action; ship a retention policy (and tamper-evident export) before
-  Type II evidence collection.
+- ~~**Tenant onboarding** — tenant could pick any property.~~ Closed in
+  v0.3 by the `TenantInvite` + `UnitTenantAccess` flow. Tenants now only
+  see properties they've been explicitly invited to.
+- ~~**Rate limiting** — process-local only.~~ The limiter is now an
+  explicit-mode provider that refuses to default to memory in production.
+  Redis wiring remains TODO (see below).
+- ~~**Silent simulated provider in production**.~~ Closed — production
+  refuses to use the simulated provider unless an explicit escape hatch
+  env var is set.
+
+## New v0.3-era questions
+
+- **Production messaging wiring.** Both `TwilioProvider` and
+  `SequenceNowProvider` validate env at boot but throw a clear
+  `ProviderMisconfiguredError` on send until the REST call is wired.
+  Decide who owns this and ship before opening claim flows in prod.
+- **Redis rate limiter implementation.** Same shape — config-validated,
+  but `RedisRateLimiter.check()` throws until INCR/EXPIRE is wired.
+- **Pending owner shell users.** When an unauthenticated claimant
+  verifies a property we still create a `User` with a random password.
+  Decide between (a) magic-link / password-set email, (b) defer claim
+  completion until the user signs up, (c) Auth0.
+- **Multi-org / multi-tenant.** All rows carry `tenantId` per the house
+  rule, but there is no Org model yet. Confirm whether ohm7 should
+  reuse the existing org/membership tables in the shared 5090 cluster.
+- **Public-link grants.** Schema supports `grantee_type=public_link` in
+  v0.2 but the MVP only models user-targeted grants. Revisit when an
+  inspector or buyer needs a shareable URL.
+- **Audit log retention / SOC 2 alignment.** We write an `AuditEvent`
+  row per action; ship a retention policy (and tamper-evident export)
+  before Type II evidence collection.

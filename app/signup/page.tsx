@@ -1,14 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { hashPassword, setSessionCookie, getCurrentUser } from "@/lib/auth";
 import { signupSchema } from "@/lib/ohm7/zod-schemas";
 import { writeAudit } from "@/lib/ohm7/audit";
+import { rateLimit } from "@/lib/ohm7/rate-limit";
 
 export const metadata = { title: "Sign up — ohm7" };
 
 async function action(formData: FormData) {
   "use server";
+  const ip = headers().get("x-forwarded-for") ?? "anon";
+  if (!(await rateLimit().check(`signup:${ip}`, 5, 60_000))) {
+    redirect(`/signup?error=${encodeURIComponent("Too many attempts — try again in a minute")}`);
+  }
   const parsed = signupSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     const msg = encodeURIComponent(parsed.error.issues[0]?.message ?? "Invalid input");

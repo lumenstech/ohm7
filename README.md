@@ -3,16 +3,26 @@
 Property-bound electrical panel records, owner-approved access, and service
 history. MVP scope based on the v0.2 design doc.
 
-## Quick start
+## Quick start (local)
 
 ```bash
 pnpm install                              # install deps
 cp .env.example .env                      # set DATABASE_URL + AUTH_SECRET
 pnpm prisma:generate
-pnpm prisma:push                          # create the schema in Postgres
+pnpm prisma:migrate                       # apply migration history
 pnpm db:seed                              # demo users, jurisdictions, panels
 pnpm dev                                  # http://localhost:3000
 ```
+
+## Production migration
+
+```bash
+pnpm prisma:migrate:deploy                # apply all pending migrations
+# DO NOT run pnpm db:seed against a production database
+```
+
+See `docs/ohm7-deployment-checklist.md` for the full pre-deploy checklist
+including required env vars, provider modes, and rate-limiter modes.
 
 Demo logins (after seed): `owner@example.com` / `admin@example.com` —
 password `password123`.
@@ -49,7 +59,9 @@ See `docs/`:
 - `ohm7-permissions.md` — role matrix
 - `ohm7-claim-flow.md` — owner verification details
 - `ohm7-compliance-overlay.md` — rules engine notes + disclaimers
-- `ohm7-open-questions.md` — unresolved items carried from v0.2
+- `ohm7-v0.3-hardening.md` — what changed in v0.3 and why
+- `ohm7-deployment-checklist.md` — required env vars, migration commands, provider/rate-limiter rules
+- `ohm7-open-questions.md` — unresolved items carried from v0.2 + v0.3-era
 
 ## Verification
 

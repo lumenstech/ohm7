@@ -3,16 +3,20 @@ import { prisma } from "@/lib/db";
 import { normalizeShortCode } from "@/lib/short-code";
 import { createGrantSchema } from "@/lib/ohm7/zod-schemas";
 import { writeAudit } from "@/lib/ohm7/audit";
-import { getProvider } from "@/lib/ohm7/provider";
+import {
+  getProvider,
+  ProviderMisconfiguredError,
+  ProviderUnavailableError,
+} from "@/lib/ohm7/provider";
 import { getCurrentUser } from "@/lib/auth";
-import { checkRateLimit } from "@/lib/ohm7/rate-limit";
+import { rateLimit } from "@/lib/ohm7/rate-limit";
 import { headers } from "next/headers";
 import { SafetyNotice } from "@/components/safety-notice";
 
 async function submitRequest(formData: FormData) {
   "use server";
   const ip = headers().get("x-forwarded-for") ?? "anon";
-  if (!checkRateLimit(`grant-req:${ip}`, 10, 60_000)) {
+  if (!(await rateLimit().check(`grant-req:${ip}`, 10, 60_000))) {
     redirect(`/p/${formData.get("shortCode")}/request-access?error=${encodeURIComponent("Too many requests, try again in a minute")}`);
   }
   const parsed = createGrantSchema.safeParse(Object.fromEntries(formData));
@@ -61,18 +65,43 @@ async function submitRequest(formData: FormData) {
     metadata: { propertyId: grant.propertyId, requesterName: grant.requesterName, via: "scan" },
   });
 
-  // Notify owner (simulated by default).
+  // Notify owner. Provider failures should NOT silently swallow the grant —
+  // the request row exists either way; the owner just needs to be re-pinged
+  // by an admin if messaging is unavailable. Audit the outcome.
   const ownerPhone = sc.panel.property.owner?.phone;
   if (ownerPhone) {
     const approveUrl = `${process.env.APP_URL ?? "http://localhost:3000"}/dashboard/access-requests/${grant.id}?action=approve`;
     const denyUrl = `${process.env.APP_URL ?? "http://localhost:3000"}/dashboard/access-requests/${grant.id}?action=deny`;
-    await getProvider().sendApprovalRequest({
-      channel: "whatsapp",
-      toPhone: ownerPhone,
-      body: `${grant.requesterName} (${grant.requesterCompany ?? "independent"}) is requesting access to your property record. Reason: ${grant.reason}`,
-      approveUrl,
-      denyUrl,
-    });
+    try {
+      const provider = getProvider();
+      if (provider.isLive()) {
+        await provider.sendApprovalRequest({
+          channel: "whatsapp",
+          toPhone: ownerPhone,
+          body: `${grant.requesterName} (${grant.requesterCompany ?? "independent"}) is requesting access to your property record. Reason: ${grant.reason}`,
+          approveUrl,
+          denyUrl,
+        });
+      } else {
+        await writeAudit({
+          action: "grant.notify_skipped",
+          entityType: "AccessGrant",
+          entityId: grant.id,
+          metadata: { reason: "messaging disabled" },
+        });
+      }
+    } catch (e) {
+      if (e instanceof ProviderUnavailableError || e instanceof ProviderMisconfiguredError) {
+        await writeAudit({
+          action: "grant.notify_failed",
+          entityType: "AccessGrant",
+          entityId: grant.id,
+          metadata: { error: e.message },
+        });
+      } else {
+        throw e;
+      }
+    }
   }
 
   redirect(`/p/${code}/request-access?submitted=1`);

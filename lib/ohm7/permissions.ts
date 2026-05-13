@@ -80,14 +80,15 @@ export async function canAccessProperty(
   }
 
   if (user.role === "tenant") {
-    // MVP: tenant is attached implicitly through TenantServiceRequest. A
-    // future change can model tenancy as its own row; for now the cheapest
-    // signal is "tenant has at least one request at the property".
-    const req = await prisma.tenantServiceRequest.findFirst({
-      where: { propertyId, tenantUserId: user.id },
+    // A tenant has read access ONLY when an owner-created TenantInvite has
+    // been accepted and the resulting UnitTenantAccess is not revoked. We
+    // no longer infer tenancy from arbitrary TenantServiceRequest rows —
+    // that was a self-service trust hole.
+    const access = await prisma.unitTenantAccess.findFirst({
+      where: { propertyId, tenantUserId: user.id, revokedAt: null },
       select: { id: true },
     });
-    return !!req;
+    return !!access;
   }
 
   return false;

@@ -2,46 +2,14 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { generateShortCode } from "../lib/short-code";
+import { seedJurisdictions } from "./seed-jurisdictions";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const ny = await prisma.jurisdiction.upsert({
-    where: { id: "seed-ny-state" },
-    update: {},
-    create: {
-      id: "seed-ny-state",
-      name: "New York State",
-      level: "state",
-      necEdition: "2020",
-      necAdoptedDate: new Date("2023-01-01"),
-    },
-  });
-
-  await prisma.jurisdiction.upsert({
-    where: { id: "seed-nyc" },
-    update: {},
-    create: {
-      id: "seed-nyc",
-      name: "City of New York",
-      level: "municipal",
-      parentId: ny.id,
-      necEdition: "2020",
-      amendments: { note: "NYC Electrical Code references 2020 NEC with amendments." },
-    },
-  });
-
-  await prisma.jurisdiction.upsert({
-    where: { id: "seed-nassau" },
-    update: {},
-    create: {
-      id: "seed-nassau",
-      name: "Nassau County",
-      level: "county",
-      parentId: ny.id,
-      necEdition: "2020",
-    },
-  });
+  await seedJurisdictions(prisma);
+  const ny = await prisma.jurisdiction.findUnique({ where: { id: "seed-jur-ny" } });
+  if (!ny) throw new Error("Jurisdiction seed did not produce NY");
 
   const ownerEmail = "owner@example.com";
   const ownerPass = await bcrypt.hash("password123", 10);

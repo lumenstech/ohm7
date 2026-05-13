@@ -47,7 +47,10 @@ export default async function PropertyDetailPage({
           </p>
         </div>
         {canManage && (
-          <Link href={`/dashboard/properties/${property.id}/panels/new`} className="btn-primary">+ Add panel</Link>
+          <div className="flex gap-2">
+            <Link href={`/dashboard/properties/${property.id}/tenant-invites`} className="btn-secondary">Tenants</Link>
+            <Link href={`/dashboard/properties/${property.id}/panels/new`} className="btn-primary">+ Add panel</Link>
+          </div>
         )}
       </header>
 

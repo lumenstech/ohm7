@@ -111,6 +111,16 @@ export const createTenantRequestSchema = z.object({
   details: z.string().trim().max(2000).optional().or(z.literal("")),
 });
 
+export const createTenantInviteSchema = z.object({
+  inviteName: z.string().trim().max(120).optional().or(z.literal("")),
+  inviteEmail: emailSchema.optional().or(z.literal("")),
+  unitId: z.string().optional().or(z.literal("")),
+});
+
+export const acceptTenantInviteSchema = z.object({
+  token: z.string().min(8).max(200),
+});
+
 export const signupSchema = z.object({
   email: emailSchema,
   password: z.string().min(8).max(200),

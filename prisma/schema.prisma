@@ -44,6 +44,9 @@ model User {
   serviceEvents     ServiceEvent[]     @relation("ServiceEventActor")
   tenantRequests    TenantServiceRequest[] @relation("TenantRequester")
   auditEvents       AuditEvent[]       @relation("AuditActor")
+  invitesCreated    TenantInvite[]     @relation("TenantInviteCreator")
+  invitesAccepted   TenantInvite[]     @relation("TenantInviteAcceptor")
+  unitAccess        UnitTenantAccess[]
 }
 
 // ---------------------------------------------------------------------------
@@ -59,12 +62,16 @@ enum JurisdictionLevel {
 model Jurisdiction {
   id              String             @id @default(cuid())
   name            String
+  state           String?            // 2-letter; null for non-state levels that already capture it through parent
   level           JurisdictionLevel
   parentId        String?
   parent          Jurisdiction?      @relation("JurisdictionParent", fields: [parentId], references: [id])
   children        Jurisdiction[]     @relation("JurisdictionParent")
   necEdition      String?            // "2017" | "2020" | "2023"
+  necEditionYear  Int?               // numeric form for filtering
   necAdoptedDate  DateTime?
+  ahjUrl          String?            // optional link to the local AHJ
+  notes           String?
   amendments      Json               @default("{}")
   properties      Property[]
   createdAt       DateTime           @default(now())
@@ -110,6 +117,8 @@ model Property {
   grants         AccessGrant[]
   serviceEvents  ServiceEvent[]
   tenantRequests TenantServiceRequest[]
+  invites        TenantInvite[]
+  tenantAccess   UnitTenantAccess[]
 
   @@index([ownerUserId])
   @@index([jurisdictionId])
@@ -131,6 +140,8 @@ model Unit {
   serviceEvents ServiceEvent[]
   tenantRequests TenantServiceRequest[]
   grants       AccessGrant[]
+  tenantAccess UnitTenantAccess[]
+  invites      TenantInvite[]
 
   @@index([propertyId])
 }
@@ -498,4 +509,55 @@ model AuditEvent {
 
   @@index([entityType, entityId])
   @@index([action])
+}
+
+// ---------------------------------------------------------------------------
+// Tenant invites + accepted unit access
+// ---------------------------------------------------------------------------
+
+enum TenantInviteStatus {
+  pending
+  accepted
+  revoked
+  expired
+}
+
+model TenantInvite {
+  id             String              @id @default(cuid())
+  propertyId     String
+  property       Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId         String?
+  unit           Unit?               @relation(fields: [unitId], references: [id])
+  createdByUserId String
+  createdBy      User                @relation("TenantInviteCreator", fields: [createdByUserId], references: [id])
+  token          String              @unique
+  inviteEmail    String?             // optional pre-fill / verification target
+  inviteName     String?
+  status         TenantInviteStatus  @default(pending)
+  acceptedByUserId String?
+  acceptedBy     User?               @relation("TenantInviteAcceptor", fields: [acceptedByUserId], references: [id])
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  expiresAt      DateTime
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([propertyId])
+  @@index([status])
+}
+
+model UnitTenantAccess {
+  id           String   @id @default(cuid())
+  propertyId   String
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId       String?
+  unit         Unit?    @relation(fields: [unitId], references: [id])
+  tenantUserId String
+  tenantUser   User     @relation(fields: [tenantUserId], references: [id], onDelete: Cascade)
+  inviteId     String?
+  createdAt    DateTime @default(now())
+  revokedAt    DateTime?
+
+  @@index([propertyId, tenantUserId])
+  @@index([tenantUserId])
 }

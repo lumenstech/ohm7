@@ -4,16 +4,21 @@ import { prisma } from "@/lib/db";
 import { normalizeShortCode } from "@/lib/short-code";
 import { createClaimSchema } from "@/lib/ohm7/zod-schemas";
 import { writeAudit } from "@/lib/ohm7/audit";
-import { generateVerificationCode, getProvider } from "@/lib/ohm7/provider";
+import {
+  generateVerificationCode,
+  getProvider,
+  ProviderMisconfiguredError,
+  ProviderUnavailableError,
+} from "@/lib/ohm7/provider";
 import { getCurrentUser } from "@/lib/auth";
-import { checkRateLimit } from "@/lib/ohm7/rate-limit";
+import { rateLimit } from "@/lib/ohm7/rate-limit";
 import { headers } from "next/headers";
 import { SafetyNotice } from "@/components/safety-notice";
 
 async function submitClaim(formData: FormData) {
   "use server";
   const ip = headers().get("x-forwarded-for") ?? "anon";
-  if (!checkRateLimit(`claim:${ip}`, 5, 60_000)) {
+  if (!(await rateLimit().check(`claim:${ip}`, 5, 60_000))) {
     redirect(`/claim/${formData.get("shortCode")}?error=${encodeURIComponent("Too many attempts — try again in a minute")}`);
   }
   const parsed = createClaimSchema.safeParse(Object.fromEntries(formData));
@@ -27,6 +32,21 @@ async function submitClaim(formData: FormData) {
   if (!sc) redirect(`/claim/${code}?error=${encodeURIComponent("Unknown sticker")}`);
   if (sc.status === "active") {
     redirect(`/claim/${code}?error=${encodeURIComponent("This sticker is already linked to a property. Sign in or request access instead.")}`);
+  }
+
+  // Resolve the provider BEFORE writing any DB rows so we can surface a clean
+  // "messaging unavailable" message without leaving stale claim rows behind.
+  let provider;
+  try {
+    provider = getProvider();
+  } catch (e) {
+    if (e instanceof ProviderMisconfiguredError) {
+      redirect(`/claim/${code}?error=${encodeURIComponent("Messaging is currently unavailable. Please contact support.")}`);
+    }
+    throw e;
+  }
+  if (!provider.isLive()) {
+    redirect(`/claim/${code}?error=${encodeURIComponent("Messaging is currently unavailable. Please contact support.")}`);
   }
 
   const verificationCode = generateVerificationCode();
@@ -44,18 +64,30 @@ async function submitClaim(formData: FormData) {
       submittedZip: data.submittedZip || null,
       unitNumber: data.unitNumber || null,
       verificationStatus: "sent",
-      verificationChannel: process.env.WHATSAPP_PROVIDER ? data.channel : "simulated",
+      verificationChannel: provider.name === "simulated" ? "simulated" : data.channel,
       verificationCode,
       verificationSentAt: new Date(),
     },
   });
 
-  await getProvider().sendVerification({
-    channel: data.channel,
-    toPhone: data.claimantPhone,
-    code: verificationCode,
-    context: `ohm7 property claim for ${data.submittedAddress}`,
-  });
+  try {
+    await provider.sendVerification({
+      channel: data.channel,
+      toPhone: data.claimantPhone,
+      code: verificationCode,
+      context: `ohm7 property claim for ${data.submittedAddress}`,
+    });
+  } catch (e) {
+    // Roll the claim into a failed state instead of leaving it as "sent".
+    await prisma.propertyClaim.update({
+      where: { id: claim.id },
+      data: { verificationStatus: "failed", notes: e instanceof Error ? e.message : "send failed" },
+    });
+    if (e instanceof ProviderUnavailableError || e instanceof ProviderMisconfiguredError) {
+      redirect(`/claim/${code}?error=${encodeURIComponent("Messaging is currently unavailable. Please contact support.")}`);
+    }
+    throw e;
+  }
 
   await writeAudit({
     actorUserId: user?.id ?? null,
