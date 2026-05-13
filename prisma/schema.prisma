@@ -1,0 +1,501 @@
+// ohm7 — Property digital twin (MVP)
+//
+// Multi-tenant via tenant_id where useful; for the MVP a single implicit
+// tenant is fine — the column is kept so we don't have to migrate it in.
+//
+// Enums kept narrow on purpose; the v0.2 spec is explicit about valid
+// values for protection_type, created_via, claim verification_status, etc.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Users / auth
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  owner
+  trade
+  tenant
+  admin
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  fullName     String?
+  phone        String?
+  company      String?
+  role         UserRole @default(owner)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ownedProperties   Property[]         @relation("PropertyOwner")
+  claimsSubmitted   PropertyClaim[]    @relation("ClaimSubmitter")
+  grantsRequested   AccessGrant[]      @relation("GrantRequester")
+  grantsApproved    AccessGrant[]      @relation("GrantApprover")
+  serviceEvents     ServiceEvent[]     @relation("ServiceEventActor")
+  tenantRequests    TenantServiceRequest[] @relation("TenantRequester")
+  auditEvents       AuditEvent[]       @relation("AuditActor")
+}
+
+// ---------------------------------------------------------------------------
+// Jurisdictions (NEC edition lookup)
+// ---------------------------------------------------------------------------
+
+enum JurisdictionLevel {
+  state
+  county
+  municipal
+}
+
+model Jurisdiction {
+  id              String             @id @default(cuid())
+  name            String
+  level           JurisdictionLevel
+  parentId        String?
+  parent          Jurisdiction?      @relation("JurisdictionParent", fields: [parentId], references: [id])
+  children        Jurisdiction[]     @relation("JurisdictionParent")
+  necEdition      String?            // "2017" | "2020" | "2023"
+  necAdoptedDate  DateTime?
+  amendments      Json               @default("{}")
+  properties      Property[]
+  createdAt       DateTime           @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Property / Unit
+// ---------------------------------------------------------------------------
+
+enum PropertyType {
+  single_family
+  multi_family
+  commercial
+  mixed_use
+}
+
+model Property {
+  id             String       @id @default(cuid())
+  tenantId       String       @default("default")
+  addressLine1   String
+  addressLine2   String?
+  city           String?
+  state          String?      // 2-letter
+  zip            String?
+  country        String       @default("US")
+  jurisdictionId String?
+  jurisdiction   Jurisdiction? @relation(fields: [jurisdictionId], references: [id])
+  propertyType   PropertyType @default(single_family)
+  unitCount      Int          @default(1)
+  yearBuilt      Int?
+  parcelId       String?
+  ownerUserId    String?
+  owner          User?        @relation("PropertyOwner", fields: [ownerUserId], references: [id])
+  nickname       String?
+  metadata       Json         @default("{}")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  units          Unit[]
+  panels         Panel[]
+  shortCodes     PanelShortCode[]
+  claims         PropertyClaim[]
+  grants         AccessGrant[]
+  serviceEvents  ServiceEvent[]
+  tenantRequests TenantServiceRequest[]
+
+  @@index([ownerUserId])
+  @@index([jurisdictionId])
+}
+
+model Unit {
+  id           String   @id @default(cuid())
+  propertyId   String
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenantId     String   @default("default")
+  unitNumber   String?
+  floor        Int?
+  bedrooms     Int?
+  bathrooms    Float?
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now())
+
+  panels       Panel[]
+  serviceEvents ServiceEvent[]
+  tenantRequests TenantServiceRequest[]
+  grants       AccessGrant[]
+
+  @@index([propertyId])
+}
+
+// ---------------------------------------------------------------------------
+// Panel / Circuit / Breaker
+// ---------------------------------------------------------------------------
+
+enum StickerPlacement {
+  outside_cover
+  deadfront
+  inside_panel
+  unknown
+}
+
+enum Phase {
+  single_phase
+  three_phase
+  split_phase
+  unknown
+}
+
+model Panel {
+  id                String           @id @default(cuid())
+  propertyId        String
+  property          Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId            String?
+  unit              Unit?            @relation(fields: [unitId], references: [id])
+  tenantId          String           @default("default")
+  nickname          String?
+  locationDescription String?
+  manufacturer      String?
+  panelLine         String?          // QO | Homeline | BR | CH | Q-Line | Stab-Lok …
+  modelNumber       String?
+  serialNumber      String?
+  busRatingAmps     Int?
+  mainBreakerAmps   Int?             // null = main-lug only
+  voltage           String?          // "120/240" | "120/208" | "277/480"
+  phase             Phase            @default(single_phase)
+  numSpaces         Int?
+  maxCircuits       Int?
+  serviceEntrance   Boolean          @default(false)
+  isMain            Boolean          @default(true)
+  fedFromPanelId    String?
+  fedFromPanel      Panel?           @relation("PanelFeed", fields: [fedFromPanelId], references: [id])
+  subPanels         Panel[]          @relation("PanelFeed")
+  installationYear  Int?
+  conditionNotes    String?
+  stickerPlacement  StickerPlacement @default(unknown)
+  recallFlag        Boolean          @default(false)
+  recallReason      String?
+  metadata          Json             @default("{}")
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  circuits          Circuit[]
+  shortCodes        PanelShortCode[]
+  serviceEvents     ServiceEvent[]
+  grants            AccessGrant[]
+
+  @@index([propertyId])
+}
+
+enum ProtectionType {
+  standard
+  afci
+  gfci
+  dfci
+  cafci
+  dual_function
+}
+
+model Circuit {
+  id                  String         @id @default(cuid())
+  panelId             String
+  panel               Panel          @relation(fields: [panelId], references: [id], onDelete: Cascade)
+  tenantId            String         @default("default")
+  circuitNumber       Int            // primary slot
+  positionB           Int?           // second slot for 2-pole/tandem
+  label               String?
+  areaServed          String?
+  loadType            String?
+  breakerAmperage     Int?
+  breakerPoleCount    Int?           // 1 | 2 | 3
+  breakerManufacturer String?
+  breakerModel        String?
+  protectionType      ProtectionType @default(standard)
+  isTandem            Boolean        @default(false)
+  wireSizeAwg         String?
+  wireMethod          String?
+  notes               String?
+  metadata            Json           @default("{}")
+  addedByUserId       String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  serviceEvents       ServiceEvent[]
+
+  @@unique([panelId, circuitNumber])
+  @@index([panelId])
+}
+
+// ---------------------------------------------------------------------------
+// QR / sticker short codes
+// ---------------------------------------------------------------------------
+
+enum ShortCodeStatus {
+  unassigned
+  active
+  replaced
+  retired
+}
+
+model PanelShortCode {
+  id              String          @id @default(cuid())
+  shortCode       String          @unique
+  propertyId      String?
+  property        Property?       @relation(fields: [propertyId], references: [id])
+  panelId         String?
+  panel           Panel?          @relation(fields: [panelId], references: [id])
+  locationLabel   String?
+  stickerBatchId  String?
+  status          ShortCodeStatus @default(unassigned)
+  activatedAt     DateTime?
+  activatedByUserId String?
+  lastScannedAt   DateTime?
+  scanCount       Int             @default(0)
+  createdAt       DateTime        @default(now())
+
+  scans           ScanEvent[]
+  claims          PropertyClaim[]
+
+  @@index([propertyId])
+  @@index([panelId])
+}
+
+enum ScanOutcome {
+  viewed_public
+  auth_prompted
+  access_requested
+  granted
+  denied
+  timeout
+}
+
+model ScanEvent {
+  id            String           @id @default(cuid())
+  shortCodeId   String
+  shortCode     PanelShortCode   @relation(fields: [shortCodeId], references: [id])
+  scannedByUserId String?
+  scannedAt     DateTime         @default(now())
+  ipAddress     String?
+  userAgent     String?
+  deviceFp      String?
+  outcome       ScanOutcome      @default(viewed_public)
+
+  @@index([shortCodeId])
+}
+
+// ---------------------------------------------------------------------------
+// Property claims
+// ---------------------------------------------------------------------------
+
+enum ClaimStatus {
+  pending
+  sent
+  verified
+  failed
+  stalled
+  manually_verified
+}
+
+enum VerificationChannel {
+  whatsapp
+  sms
+  manual
+  simulated
+}
+
+model PropertyClaim {
+  id                 String                @id @default(cuid())
+  shortCodeId        String?
+  shortCode          PanelShortCode?       @relation(fields: [shortCodeId], references: [id])
+  propertyId         String?
+  property           Property?             @relation(fields: [propertyId], references: [id])
+  claimantUserId     String?
+  claimant           User?                 @relation("ClaimSubmitter", fields: [claimantUserId], references: [id])
+  claimantName       String
+  claimantPhone      String
+  claimantEmail      String?
+  submittedAddress   String
+  submittedCity      String?
+  submittedState     String?
+  submittedZip       String?
+  unitNumber         String?
+  verificationStatus ClaimStatus           @default(pending)
+  verificationChannel VerificationChannel  @default(simulated)
+  verificationCode   String?
+  verificationSentAt DateTime?
+  ownerVerifiedAt    DateTime?
+  notes              String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@index([shortCodeId])
+  @@index([propertyId])
+}
+
+// ---------------------------------------------------------------------------
+// Access grants
+// ---------------------------------------------------------------------------
+
+enum GrantStatus {
+  pending
+  approved
+  denied
+  revoked
+  expired
+}
+
+enum GrantCreatedVia {
+  scan
+  portal
+  api
+}
+
+enum GrantScope {
+  property
+  panel
+  unit
+}
+
+model AccessGrant {
+  id                String          @id @default(cuid())
+  propertyId        String
+  property          Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  panelId           String?
+  panel             Panel?          @relation(fields: [panelId], references: [id])
+  unitId            String?
+  unit              Unit?           @relation(fields: [unitId], references: [id])
+  tradeUserId       String?
+  tradeUser         User?           @relation("GrantRequester", fields: [tradeUserId], references: [id])
+  requesterName     String
+  requesterCompany  String?
+  requesterPhone    String?
+  requesterEmail    String?
+  requesterLicense  String?
+  reason            String?
+  scope             GrantScope      @default(property)
+  status            GrantStatus     @default(pending)
+  createdVia        GrantCreatedVia @default(scan)
+  approvedByUserId  String?
+  approvedBy        User?           @relation("GrantApprover", fields: [approvedByUserId], references: [id])
+  approvedAt        DateTime?
+  deniedAt          DateTime?
+  revokedAt         DateTime?
+  expiresAt         DateTime?
+  reasonDenied      String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([propertyId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Service events
+// ---------------------------------------------------------------------------
+
+enum ServiceEventSource {
+  manual
+  scan
+  invoicechats
+  api
+}
+
+enum Trade {
+  electrical
+  plumbing
+  hvac
+  general
+  roofing
+  other
+}
+
+model ServiceEvent {
+  id                    String              @id @default(cuid())
+  propertyId            String
+  property              Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  panelId               String?
+  panel                 Panel?              @relation(fields: [panelId], references: [id])
+  circuitId             String?
+  circuit               Circuit?            @relation(fields: [circuitId], references: [id])
+  unitId                String?
+  unit                  Unit?               @relation(fields: [unitId], references: [id])
+  performedByUserId     String?
+  performedBy           User?               @relation("ServiceEventActor", fields: [performedByUserId], references: [id])
+  trade                 Trade               @default(electrical)
+  eventType             String              // install | repair | replace | inspect | troubleshoot | upgrade
+  summary               String
+  notes                 String?
+  necSectionReferenced  Json                @default("[]") // ["210.8(A)", "408.4(A)"]
+  partsUsed             Json                @default("[]")
+  photos                Json                @default("[]")
+  permitNumber          String?
+  invoiceReference      String?
+  source                ServiceEventSource  @default(manual)
+  performedAt           DateTime?
+  durationMinutes       Int?
+  costCents             BigInt?
+  metadata              Json                @default("{}")
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  @@index([propertyId])
+  @@index([panelId])
+  @@index([circuitId])
+}
+
+// ---------------------------------------------------------------------------
+// Tenant service requests
+// ---------------------------------------------------------------------------
+
+enum TenantRequestStatus {
+  open
+  acknowledged
+  in_progress
+  resolved
+  closed
+}
+
+model TenantServiceRequest {
+  id            String              @id @default(cuid())
+  propertyId    String
+  property      Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId        String?
+  unit          Unit?               @relation(fields: [unitId], references: [id])
+  tenantUserId  String
+  tenant        User                @relation("TenantRequester", fields: [tenantUserId], references: [id])
+  category      String              // electrical | plumbing | hvac | other
+  summary       String
+  details       String?
+  status        TenantRequestStatus @default(open)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([propertyId])
+  @@index([tenantUserId])
+}
+
+// ---------------------------------------------------------------------------
+// Audit log
+// ---------------------------------------------------------------------------
+
+model AuditEvent {
+  id           String   @id @default(cuid())
+  actorUserId  String?
+  actor        User?    @relation("AuditActor", fields: [actorUserId], references: [id])
+  actorRole    UserRole?
+  action       String
+  entityType   String
+  entityId     String?
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([action])
+}
