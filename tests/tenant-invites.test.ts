@@ -3,7 +3,7 @@ import {
   classifyInvite,
   DEFAULT_INVITE_TTL_MS,
   generateInviteToken,
-} from "@/lib/ohm7/tenant-invites";
+} from "@/lib/dht/tenant-invites";
 
 describe("generateInviteToken", () => {
   it("is URL-safe", () => {

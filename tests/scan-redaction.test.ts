@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPublicScanView } from "@/lib/ohm7/scan-view";
+import { buildPublicScanView } from "@/lib/dht/scan-view";
 
 // Construct a maximally-leaky input including data that should NEVER appear
 // in the public view. The shape of the function's Input type already excludes

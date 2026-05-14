@@ -1,11 +1,11 @@
-export const metadata = { title: "For tenants — ohm7" };
+export const metadata = { title: "For tenants — ServiceFixes DHT" };
 
 export default function ForTenantsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 prose prose-ink">
       <h1>For tenants</h1>
       <p>
-        Submit service requests for your unit. ohm7 keeps a record of what's been done so the next
+        Submit service requests for your unit. ServiceFixes DHT keeps a record of what's been done so the next
         electrician shows up informed.
       </p>
       <ul>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { buildPublicScanView } from "@/lib/ohm7/scan-view";
+import { buildPublicScanView } from "@/lib/dht/scan-view";
 import { normalizeShortCode } from "@/lib/short-code";
 import { headers } from "next/headers";
 import { SafetyNotice } from "@/components/safety-notice";
@@ -79,7 +79,7 @@ export default async function ScanPage({ params }: { params: { shortCode: string
         </p>
         <div className="flex flex-wrap gap-3">
           <Link href={`/claim/${view.shortCode}`} className="btn-primary">Register this panel</Link>
-          <Link href="/signup?role=owner" className="btn-secondary">Create an owner account</Link>
+          <Link href="/auth/login?screen_hint=signup" className="btn-secondary">Create an owner account</Link>
         </div>
         <SafetyNotice />
       </div>

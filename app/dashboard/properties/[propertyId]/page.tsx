@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
-import { canAccessProperty, canManageProperty } from "@/lib/ohm7/permissions";
+import { requireCurrentUser } from "@/lib/dht/auth/current-user";
+import { canAccessProperty, canManageProperty } from "@/lib/dht/permissions";
 import { FlagBadge } from "@/components/flag-badge";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ export default async function PropertyDetailPage({
   params: { propertyId: string };
   searchParams: { welcome?: string };
 }) {
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   if (!(await canAccessProperty(user, params.propertyId))) notFound();
   const canManage = await canManageProperty(user, params.propertyId);
 

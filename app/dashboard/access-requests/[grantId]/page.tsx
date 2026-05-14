@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
-import { canManageProperty } from "@/lib/ohm7/permissions";
-import { writeAudit } from "@/lib/ohm7/audit";
+import { requireCurrentUser } from "@/lib/dht/auth/current-user";
+import { canManageProperty } from "@/lib/dht/permissions";
+import { writeAudit } from "@/lib/dht/audit";
 
 async function approve(formData: FormData) {
   "use server";
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const grantId = String(formData.get("grantId") ?? "");
   const g = await prisma.accessGrant.findUnique({ where: { id: grantId } });
   if (!g) notFound();
@@ -28,7 +28,7 @@ async function approve(formData: FormData) {
 
 async function deny(formData: FormData) {
   "use server";
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const grantId = String(formData.get("grantId") ?? "");
   const reason = String(formData.get("reason") ?? "");
   const g = await prisma.accessGrant.findUnique({ where: { id: grantId } });
@@ -50,7 +50,7 @@ async function deny(formData: FormData) {
 
 async function revoke(formData: FormData) {
   "use server";
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const grantId = String(formData.get("grantId") ?? "");
   const g = await prisma.accessGrant.findUnique({ where: { id: grantId } });
   if (!g) notFound();
@@ -76,7 +76,7 @@ export default async function AccessRequestPage({
   params: { grantId: string };
   searchParams: { action?: string; error?: string };
 }) {
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const g = await prisma.accessGrant.findUnique({
     where: { id: params.grantId },
     include: { property: true },

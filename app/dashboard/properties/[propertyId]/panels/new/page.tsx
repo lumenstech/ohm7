@@ -1,15 +1,15 @@
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
-import { canManageProperty } from "@/lib/ohm7/permissions";
-import { createPanelSchema } from "@/lib/ohm7/zod-schemas";
-import { writeAudit } from "@/lib/ohm7/audit";
-import { evaluateRecallRules } from "@/lib/ohm7/recall-rules";
+import { requireCurrentUser } from "@/lib/dht/auth/current-user";
+import { canManageProperty } from "@/lib/dht/permissions";
+import { createPanelSchema } from "@/lib/dht/zod-schemas";
+import { writeAudit } from "@/lib/dht/audit";
+import { evaluateRecallRules } from "@/lib/dht/recall-rules";
 import { generateShortCode } from "@/lib/short-code";
 
 async function action(formData: FormData) {
   "use server";
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const propertyId = String(formData.get("propertyId") ?? "");
   if (!(await canManageProperty(user, propertyId))) {
     redirect(`/dashboard/properties/${propertyId}?error=${encodeURIComponent("Not allowed")}`);
@@ -94,7 +94,7 @@ export default async function NewPanelPage({
   params: { propertyId: string };
   searchParams: { error?: string };
 }) {
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   if (!(await canManageProperty(user, params.propertyId))) notFound();
   return (
     <div className="max-w-xl">

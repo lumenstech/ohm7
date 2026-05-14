@@ -12,26 +12,26 @@ TLS, observability) — those follow the existing 5090 conventions.
 | `DATABASE_URL` | Postgres connection string. |
 | `AUTH_SECRET` | 32+ char random string for JWT signing. **Rotate per env.** |
 | `APP_URL` | Public base URL (used in scan / claim / invite links). |
-| `OHM7_MESSAGE_PROVIDER` | `simulated` / `twilio` / `sequencenow` / `disabled`. **No default in production.** |
-| `OHM7_RATE_LIMIT_PROVIDER` | `memory` / `redis` / `disabled`. **No default in production.** |
+| `DHT_MESSAGE_PROVIDER` | `simulated` / `twilio` / `sequencenow` / `disabled`. **No default in production.** |
+| `DHT_RATE_LIMIT_PROVIDER` | `memory` / `redis` / `disabled`. **No default in production.** |
 
-### Required when `OHM7_MESSAGE_PROVIDER=twilio`
+### Required when `DHT_MESSAGE_PROVIDER=twilio`
 - `TWILIO_ACCOUNT_SID`
 - `TWILIO_AUTH_TOKEN`
 - `TWILIO_WHATSAPP_FROM` *and/or* `TWILIO_SMS_FROM`
 
-### Required when `OHM7_MESSAGE_PROVIDER=sequencenow`
+### Required when `DHT_MESSAGE_PROVIDER=sequencenow`
 - `SEQUENCENOW_WEBHOOK_URL`
 - `SEQUENCENOW_API_KEY`
 
-### Required when `OHM7_RATE_LIMIT_PROVIDER=redis`
+### Required when `DHT_RATE_LIMIT_PROVIDER=redis`
 - `REDIS_URL`
 
 ### Optional production escape hatches (avoid)
-- `OHM7_ALLOW_SIMULATED_PROVIDER_IN_PRODUCTION=true` — lets the simulated
+- `DHT_ALLOW_SIMULATED_PROVIDER_IN_PRODUCTION=true` — lets the simulated
   provider run in production. **Don't.** Reserved for cold-start staging
   smoke tests.
-- `OHM7_ALLOW_MEMORY_RATE_LIMIT_IN_PRODUCTION=true` — lets the in-memory
+- `DHT_ALLOW_MEMORY_RATE_LIMIT_IN_PRODUCTION=true` — lets the in-memory
   rate limiter run in production. Only valid for genuinely single-instance
   deployments.
 
@@ -75,7 +75,7 @@ All seven steps must pass. `pnpm test` includes:
 
 ## Production provider requirements
 
-- `OHM7_MESSAGE_PROVIDER` must be `twilio`, `sequencenow`, or `disabled`.
+- `DHT_MESSAGE_PROVIDER` must be `twilio`, `sequencenow`, or `disabled`.
   The current build's REST implementations for Twilio / SequenceNow are
   TODO — they validate config and throw clearly until wired. If
   messaging is unavailable, claim and access-request flows will surface
@@ -84,7 +84,7 @@ All seven steps must pass. `pnpm test` includes:
 
 ## Rate limiter requirements
 
-- `OHM7_RATE_LIMIT_PROVIDER` must be set. `memory` is only acceptable on
+- `DHT_RATE_LIMIT_PROVIDER` must be set. `memory` is only acceptable on
   a single-instance deployment and even then requires the explicit
   override. The current Redis implementation validates config and
   throws until INCR/EXPIRE is wired.
@@ -102,11 +102,11 @@ All seven steps must pass. `pnpm test` includes:
 
 ## Known unsafe dev-only settings
 
-- `OHM7_MESSAGE_PROVIDER=simulated` logs verification codes to stdout.
-- `OHM7_RATE_LIMIT_PROVIDER=memory` is not multi-instance safe.
-- `OHM7_ALLOW_SIMULATED_PROVIDER_IN_PRODUCTION=true` should never be set
+- `DHT_MESSAGE_PROVIDER=simulated` logs verification codes to stdout.
+- `DHT_RATE_LIMIT_PROVIDER=memory` is not multi-instance safe.
+- `DHT_ALLOW_SIMULATED_PROVIDER_IN_PRODUCTION=true` should never be set
   in real prod.
-- `OHM7_ALLOW_MEMORY_RATE_LIMIT_IN_PRODUCTION=true` only valid for one
+- `DHT_ALLOW_MEMORY_RATE_LIMIT_IN_PRODUCTION=true` only valid for one
   pod.
 - Default seed users (`owner@example.com`, `admin@example.com`,
   password `password123`) are clearly dev fixtures — do not run

@@ -4,7 +4,7 @@ import {
   createGrantSchema,
   createServiceEventSchema,
   protectionTypeSchema,
-} from "@/lib/ohm7/zod-schemas";
+} from "@/lib/dht/zod-schemas";
 
 describe("protectionTypeSchema", () => {
   it("accepts all six required values", () => {

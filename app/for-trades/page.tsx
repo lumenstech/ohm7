@@ -1,4 +1,4 @@
-export const metadata = { title: "For trades — ohm7" };
+export const metadata = { title: "For trades — ServiceFixes DHT" };
 
 export default function ForTradesPage() {
   return (

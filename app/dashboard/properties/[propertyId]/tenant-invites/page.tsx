@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
-import { canManageProperty } from "@/lib/ohm7/permissions";
-import { writeAudit } from "@/lib/ohm7/audit";
-import { classifyInvite } from "@/lib/ohm7/tenant-invites";
+import { requireCurrentUser } from "@/lib/dht/auth/current-user";
+import { canManageProperty } from "@/lib/dht/permissions";
+import { writeAudit } from "@/lib/dht/audit";
+import { classifyInvite } from "@/lib/dht/tenant-invites";
 
 async function revokeInvite(formData: FormData) {
   "use server";
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const id = String(formData.get("inviteId") ?? "");
   const propertyId = String(formData.get("propertyId") ?? "");
   if (!(await canManageProperty(user, propertyId))) {
@@ -36,7 +36,7 @@ async function revokeInvite(formData: FormData) {
 
 async function revokeAccess(formData: FormData) {
   "use server";
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const id = String(formData.get("accessId") ?? "");
   const propertyId = String(formData.get("propertyId") ?? "");
   if (!(await canManageProperty(user, propertyId))) {
@@ -66,7 +66,7 @@ export default async function TenantInvitesListPage({
   params: { propertyId: string };
   searchParams: { error?: string };
 }) {
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   if (!(await canManageProperty(user, params.propertyId))) notFound();
   const property = await prisma.property.findUnique({
     where: { id: params.propertyId },

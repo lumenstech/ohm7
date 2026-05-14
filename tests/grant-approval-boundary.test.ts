@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { PrismaClient, type User } from "@prisma/client";
-import { canAccessProperty, canManageProperty } from "@/lib/ohm7/permissions";
+import { canAccessProperty, canManageProperty } from "@/lib/dht/permissions";
 
 const hasDb = !!process.env.DATABASE_URL;
 const d = hasDb ? describe : describe.skip;
@@ -18,19 +18,19 @@ d("access grant approval boundary", () => {
 
   async function makeUsers() {
     const owner = await prisma.user.create({
-      data: { email: `test-grant-${Date.now()}-o@example.com`, passwordHash: "x", role: "owner" },
+      data: { email: `test-grant-${Date.now()}-o@example.com`, auth0Sub: `auth0|test-${Date.now()}-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`, role: "owner" },
     });
     const otherOwner = await prisma.user.create({
-      data: { email: `test-grant-${Date.now()}-o2@example.com`, passwordHash: "x", role: "owner" },
+      data: { email: `test-grant-${Date.now()}-o2@example.com`, auth0Sub: `auth0|test-${Date.now()}-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`, role: "owner" },
     });
     const trade = await prisma.user.create({
-      data: { email: `test-grant-${Date.now()}-t@example.com`, passwordHash: "x", role: "trade" },
+      data: { email: `test-grant-${Date.now()}-t@example.com`, auth0Sub: `auth0|test-${Date.now()}-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`, role: "trade" },
     });
     const tenant = await prisma.user.create({
-      data: { email: `test-grant-${Date.now()}-te@example.com`, passwordHash: "x", role: "tenant" },
+      data: { email: `test-grant-${Date.now()}-te@example.com`, auth0Sub: `auth0|test-${Date.now()}-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`, role: "tenant" },
     });
     const admin = await prisma.user.create({
-      data: { email: `test-grant-${Date.now()}-a@example.com`, passwordHash: "x", role: "admin" },
+      data: { email: `test-grant-${Date.now()}-a@example.com`, auth0Sub: `auth0|test-${Date.now()}-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`, role: "admin" },
     });
     const property = await prisma.property.create({
       data: { addressLine1: `TEST-GRANT::${Date.now()}`, ownerUserId: owner.id },

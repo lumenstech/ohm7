@@ -16,9 +16,9 @@ export default function HomePage() {
               left off. Owners approve every grant by WhatsApp. Records travel with the building.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/signup" className="btn-primary">Register a property</Link>
+              <Link href="/auth/login?screen_hint=signup" className="btn-primary">Register a property</Link>
               <Link href="/p/DEMOACTIVE" className="btn-secondary">Scan a panel (demo)</Link>
-              <Link href="/login" className="btn-secondary">Trade sign-in</Link>
+              <Link href="/auth/login" className="btn-secondary">Trade sign-in</Link>
             </div>
           </div>
         </div>

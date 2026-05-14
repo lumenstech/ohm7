@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/dht/auth/current-user";
 
 export async function SiteHeader() {
   const user = await getCurrentUser();
@@ -8,7 +8,7 @@ export async function SiteHeader() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center gap-2">
           <Logo />
-          <span className="font-semibold tracking-tight">ohm7</span>
+          <span className="font-semibold tracking-tight">ServiceFixes DHT</span>
         </Link>
         <nav className="hidden gap-6 text-sm text-ink-600 md:flex">
           <Link href="/for-landlords" className="hover:text-ink-900">Landlords</Link>
@@ -21,14 +21,12 @@ export async function SiteHeader() {
           {user ? (
             <>
               <Link href="/dashboard" className="btn-secondary">Dashboard</Link>
-              <form action="/api/auth/logout" method="post">
-                <button className="btn-secondary" type="submit">Sign out</button>
-              </form>
+              <a href="/auth/logout" className="btn-secondary">Sign out</a>
             </>
           ) : (
             <>
-              <Link href="/login" className="btn-secondary">Sign in</Link>
-              <Link href="/signup" className="btn-primary">Get started</Link>
+              <a href="/auth/login" className="btn-secondary">Sign in</a>
+              <a href="/auth/login?screen_hint=signup" className="btn-primary">Get started</a>
             </>
           )}
         </div>

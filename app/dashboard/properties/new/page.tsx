@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireRole } from "@/lib/auth";
-import { createPropertySchema } from "@/lib/ohm7/zod-schemas";
-import { writeAudit } from "@/lib/ohm7/audit";
+import { requireRole } from "@/lib/dht/auth/current-user";
+import { createPropertySchema } from "@/lib/dht/zod-schemas";
+import { writeAudit } from "@/lib/dht/audit";
 
 async function action(formData: FormData) {
   "use server";

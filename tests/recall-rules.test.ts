@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateRecallRules } from "@/lib/ohm7/recall-rules";
+import { evaluateRecallRules } from "@/lib/dht/recall-rules";
 
 describe("evaluateRecallRules", () => {
   it("flags Federal Pacific Stab-Lok as high severity", () => {

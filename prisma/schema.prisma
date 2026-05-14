@@ -1,4 +1,4 @@
-// ohm7 — Property digital twin (MVP)
+// ServiceFixes Digital Home Twin (DHT) — property digital twin (MVP)
 //
 // Multi-tenant via tenant_id where useful; for the MVP a single implicit
 // tenant is fine — the column is kept so we don't have to migrate it in.
@@ -29,7 +29,7 @@ enum UserRole {
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
-  passwordHash String
+  auth0Sub     String   @unique
   fullName     String?
   phone        String?
   company      String?
@@ -38,7 +38,6 @@ model User {
   updatedAt    DateTime @updatedAt
 
   ownedProperties   Property[]         @relation("PropertyOwner")
-  claimsSubmitted   PropertyClaim[]    @relation("ClaimSubmitter")
   grantsRequested   AccessGrant[]      @relation("GrantRequester")
   grantsApproved    AccessGrant[]      @relation("GrantApprover")
   serviceEvents     ServiceEvent[]     @relation("ServiceEventActor")
@@ -47,6 +46,9 @@ model User {
   invitesCreated    TenantInvite[]     @relation("TenantInviteCreator")
   invitesAccepted   TenantInvite[]     @relation("TenantInviteAcceptor")
   unitAccess        UnitTenantAccess[]
+  approvalsAsApprover ApprovalRequest[] @relation("ApprovalApprover")
+
+  @@index([auth0Sub])
 }
 
 // ---------------------------------------------------------------------------
@@ -113,7 +115,6 @@ model Property {
   units          Unit[]
   panels         Panel[]
   shortCodes     PanelShortCode[]
-  claims         PropertyClaim[]
   grants         AccessGrant[]
   serviceEvents  ServiceEvent[]
   tenantRequests TenantServiceRequest[]
@@ -272,7 +273,6 @@ model PanelShortCode {
   createdAt       DateTime        @default(now())
 
   scans           ScanEvent[]
-  claims          PropertyClaim[]
 
   @@index([propertyId])
   @@index([panelId])
@@ -301,54 +301,10 @@ model ScanEvent {
   @@index([shortCodeId])
 }
 
-// ---------------------------------------------------------------------------
-// Property claims
-// ---------------------------------------------------------------------------
-
-enum ClaimStatus {
-  pending
-  sent
-  verified
-  failed
-  stalled
-  manually_verified
-}
-
-enum VerificationChannel {
-  whatsapp
-  sms
-  manual
-  simulated
-}
-
-model PropertyClaim {
-  id                 String                @id @default(cuid())
-  shortCodeId        String?
-  shortCode          PanelShortCode?       @relation(fields: [shortCodeId], references: [id])
-  propertyId         String?
-  property           Property?             @relation(fields: [propertyId], references: [id])
-  claimantUserId     String?
-  claimant           User?                 @relation("ClaimSubmitter", fields: [claimantUserId], references: [id])
-  claimantName       String
-  claimantPhone      String
-  claimantEmail      String?
-  submittedAddress   String
-  submittedCity      String?
-  submittedState     String?
-  submittedZip       String?
-  unitNumber         String?
-  verificationStatus ClaimStatus           @default(pending)
-  verificationChannel VerificationChannel  @default(simulated)
-  verificationCode   String?
-  verificationSentAt DateTime?
-  ownerVerifiedAt    DateTime?
-  notes              String?
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
-
-  @@index([shortCodeId])
-  @@index([propertyId])
-}
+// PropertyClaim + ClaimStatus + VerificationChannel removed in v0.3.1.
+// Replaced by PendingClaim + Auth0. The intermediate 6-digit verification
+// flow is gone; identity proof now comes from Auth0 sign-up keyed to the
+// same email the claimant supplied.
 
 // ---------------------------------------------------------------------------
 // Access grants
@@ -560,4 +516,52 @@ model UnitTenantAccess {
 
   @@index([propertyId, tenantUserId])
   @@index([tenantUserId])
+}
+
+// ---------------------------------------------------------------------------
+// Anonymous claim → Auth0 signup handoff
+// ---------------------------------------------------------------------------
+
+model PendingClaim {
+  id         String    @id @default(cuid())
+  token      String    @unique
+  shortCode  String
+  email      String
+  proofData  Json
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  consumedAt DateTime?
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
+// ---------------------------------------------------------------------------
+// Approval orchestration (SequenceNow / others)
+// ---------------------------------------------------------------------------
+
+enum ApprovalStatus {
+  pending
+  approved
+  denied
+  approved_once
+  expired
+}
+
+model ApprovalRequest {
+  id                String         @id @default(cuid())
+  correlationId     String         @unique
+  providerMessageId String         @unique
+  approverPhone     String
+  approverUserId    String?
+  approver          User?          @relation("ApprovalApprover", fields: [approverUserId], references: [id])
+  status            ApprovalStatus @default(pending)
+  expiresAt         DateTime
+  resolvedAt        DateTime?
+  context           Json           @default("{}")
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([approverPhone])
+  @@index([status])
 }

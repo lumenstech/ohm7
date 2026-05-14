@@ -1,44 +1,45 @@
 /* eslint-disable no-console */
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
 import { generateShortCode } from "../lib/short-code";
 import { seedJurisdictions } from "./seed-jurisdictions";
 
 const prisma = new PrismaClient();
+
+// Seed Auth0 sub claim format: "auth0|<random>" — matches what Auth0 returns
+// for its database connection. We pick deterministic strings here so re-runs
+// are idempotent. These are dev fixtures — DO NOT run against production.
+const DEV_OWNER_SUB = "auth0|dev-owner-seed";
+const DEV_ADMIN_SUB = "auth0|dev-admin-seed";
 
 async function main() {
   await seedJurisdictions(prisma);
   const ny = await prisma.jurisdiction.findUnique({ where: { id: "seed-jur-ny" } });
   if (!ny) throw new Error("Jurisdiction seed did not produce NY");
 
-  const ownerEmail = "owner@example.com";
-  const ownerPass = await bcrypt.hash("password123", 10);
   const owner = await prisma.user.upsert({
-    where: { email: ownerEmail },
+    where: { auth0Sub: DEV_OWNER_SUB },
     update: {},
     create: {
-      email: ownerEmail,
-      passwordHash: ownerPass,
+      auth0Sub: DEV_OWNER_SUB,
+      email: "owner@example.com",
       fullName: "Demo Owner",
       role: "owner",
       phone: "+15555550100",
     },
   });
 
-  const adminPass = await bcrypt.hash("password123", 10);
   await prisma.user.upsert({
-    where: { email: "admin@example.com" },
+    where: { auth0Sub: DEV_ADMIN_SUB },
     update: {},
     create: {
+      auth0Sub: DEV_ADMIN_SUB,
       email: "admin@example.com",
-      passwordHash: adminPass,
       fullName: "Demo Admin",
       role: "admin",
     },
   });
 
-  // A pre-printed unassigned sticker the seed user can scan.
-  const unassigned = await prisma.panelShortCode.upsert({
+  await prisma.panelShortCode.upsert({
     where: { shortCode: "DEMO000001" },
     update: {},
     create: {
@@ -48,7 +49,6 @@ async function main() {
     },
   });
 
-  // An already-active demo property + panel + active sticker.
   const property = await prisma.property.upsert({
     where: { id: "seed-property-1" },
     update: {},
@@ -98,7 +98,6 @@ async function main() {
     },
   });
 
-  // Seed an FPE-branded panel to demo the recall flag.
   const fpeProperty = await prisma.property.upsert({
     where: { id: "seed-property-fpe" },
     update: {},
@@ -132,7 +131,6 @@ async function main() {
     },
   });
 
-  // A handful of pre-printed unassigned stickers to play with.
   for (let i = 0; i < 5; i++) {
     const code = generateShortCode();
     await prisma.panelShortCode.create({
@@ -140,7 +138,9 @@ async function main() {
     });
   }
 
-  console.log("Seed complete. Demo logins: owner@example.com / admin@example.com (pw: password123)");
+  console.log("Seed complete. Demo logins (Auth0 dev fixtures):");
+  console.log(`  - owner@example.com (auth0Sub=${DEV_OWNER_SUB})`);
+  console.log(`  - admin@example.com (auth0Sub=${DEV_ADMIN_SUB})`);
   console.log("Demo codes: /p/DEMO000001 (unassigned), /p/DEMOACTIVE (active)");
 }
 

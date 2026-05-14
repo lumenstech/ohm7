@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateLandlordMonthly, LANDLORD_TIERS } from "@/lib/ohm7/pricing";
+import { estimateLandlordMonthly, LANDLORD_TIERS } from "@/lib/dht/pricing";
 
 describe("estimateLandlordMonthly", () => {
   it("handles zero units", () => {

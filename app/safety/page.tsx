@@ -1,6 +1,6 @@
 import { SafetyNotice } from "@/components/safety-notice";
 
-export const metadata = { title: "Safety — ohm7" };
+export const metadata = { title: "Safety — ServiceFixes DHT" };
 
 export default function SafetyPage() {
   return (
@@ -8,15 +8,15 @@ export default function SafetyPage() {
       <h1 className="text-3xl font-semibold tracking-tight">Safety &amp; disclaimers</h1>
       <SafetyNotice />
       <div className="prose prose-ink">
-        <h2>What ohm7 is</h2>
+        <h2>What ServiceFixes DHT is</h2>
         <p>
           A record-keeping system for properties and the electrical assets installed on them. We
           help you remember what panel is in the basement, what breaker feeds the kitchen, and what
           the last electrician did.
         </p>
-        <h2>What ohm7 is not</h2>
+        <h2>What ServiceFixes DHT is not</h2>
         <p>
-          ohm7 is not a code-compliance engine, not a replacement for an inspection, and not legal
+          ServiceFixes DHT is not a code-compliance engine, not a replacement for an inspection, and not legal
           advice. The recall and compliance flags shown in the app are heuristics intended to start
           a conversation with a licensed professional and the local Authority Having Jurisdiction
           (AHJ).

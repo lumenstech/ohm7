@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser, getCurrentUser } from "@/lib/auth";
-import { classifyInvite } from "@/lib/ohm7/tenant-invites";
-import { writeAudit } from "@/lib/ohm7/audit";
+import { requireCurrentUser, getCurrentUser } from "@/lib/dht/auth/current-user";
+import { classifyInvite } from "@/lib/dht/tenant-invites";
+import { writeAudit } from "@/lib/dht/audit";
 
 async function accept(formData: FormData) {
   "use server";
   const token = String(formData.get("token") ?? "");
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   if (user.role !== "tenant") {
     // We don't auto-promote roles. The user must sign up with role=tenant.
     redirect(`/tenant/invite/${token}?error=${encodeURIComponent("Your account is not a tenant account. Sign out and create a tenant account first.")}`);

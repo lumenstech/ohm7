@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireCurrentUser } from "@/lib/dht/auth/current-user";
 
 export const dynamic = "force-dynamic";
 
 export default async function PropertiesPage() {
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const where =
     user.role === "admin"
       ? {}

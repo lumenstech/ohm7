@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { roleCan } from "@/lib/ohm7/permissions";
+import { roleCan } from "@/lib/dht/permissions";
 
 describe("roleCan", () => {
   it("owner can manage grants and write panels", () => {

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { requireRole } from "@/lib/auth";
+import { requireRole } from "@/lib/dht/auth/current-user";
 
 export const dynamic = "force-dynamic";
 

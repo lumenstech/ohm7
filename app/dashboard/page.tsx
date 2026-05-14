@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireCurrentUser } from "@/lib/dht/auth/current-user";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardOverviewPage() {
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const isAdmin = user.role === "admin";
 
   const propertyFilter = isAdmin
@@ -20,7 +20,7 @@ export default async function DashboardOverviewPage() {
     prisma.property.count({ where: propertyFilter }),
     prisma.panel.count({ where: { property: propertyFilter } }),
     isAdmin
-      ? prisma.propertyClaim.count({ where: { verificationStatus: { in: ["sent", "stalled"] } } })
+      ? prisma.pendingClaim.count({ where: { consumedAt: null } })
       : 0,
     prisma.accessGrant.count({
       where: {

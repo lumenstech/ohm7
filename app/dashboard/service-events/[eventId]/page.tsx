@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
-import { canAccessProperty } from "@/lib/ohm7/permissions";
+import { requireCurrentUser } from "@/lib/dht/auth/current-user";
+import { canAccessProperty } from "@/lib/dht/permissions";
 
 export const dynamic = "force-dynamic";
 
 export default async function ServiceEventDetailPage({ params }: { params: { eventId: string } }) {
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const e = await prisma.serviceEvent.findUnique({
     where: { id: params.eventId },
     include: { property: true, panel: true, circuit: true, performedBy: true },

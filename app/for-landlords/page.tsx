@@ -1,4 +1,4 @@
-export const metadata = { title: "For landlords — ohm7" };
+export const metadata = { title: "For landlords — ServiceFixes DHT" };
 
 export default function ForLandlordsPage() {
   return (

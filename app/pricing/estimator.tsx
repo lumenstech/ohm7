@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { estimateLandlordMonthly } from "@/lib/ohm7/pricing";
+import { estimateLandlordMonthly } from "@/lib/dht/pricing";
 
 export function PricingEstimator() {
   const [units, setUnits] = useState(25);

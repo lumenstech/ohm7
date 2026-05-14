@@ -1,13 +1,13 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
-import { canRecordOnProperty } from "@/lib/ohm7/permissions";
-import { createServiceEventSchema } from "@/lib/ohm7/zod-schemas";
-import { writeAudit } from "@/lib/ohm7/audit";
+import { requireCurrentUser } from "@/lib/dht/auth/current-user";
+import { canRecordOnProperty } from "@/lib/dht/permissions";
+import { createServiceEventSchema } from "@/lib/dht/zod-schemas";
+import { writeAudit } from "@/lib/dht/audit";
 
 async function action(formData: FormData) {
   "use server";
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const parsed = createServiceEventSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     redirect(`/dashboard/service-events/new?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Invalid")}`);
@@ -56,7 +56,7 @@ export default async function NewServiceEventPage({
 }: {
   searchParams: { propertyId?: string; panelId?: string; error?: string };
 }) {
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   if (user.role === "tenant") redirect("/dashboard/tenant/service-requests/new");
 
   const where =

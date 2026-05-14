@@ -1,14 +1,23 @@
 # ohm7 — v0.3 hardening
 
+> **Superseded by `docs/dht-v0.3.1-realignment.md`.** The v0.3 doc below is
+> kept verbatim for history. The product was renamed to ServiceFixes DHT
+> in v0.3.1, the WhatsApp/SMS provider was split into a BSP layer
+> (`MessageProvider` = Dialog360 / Gupshup / Simulated / Disabled) and an
+> approval-orchestration layer (`ApprovalOrchestrator` = SequenceNow /
+> Disabled), Twilio was removed, and the homegrown email/password auth was
+> replaced with Auth0.
+
+
 Scope: NOT new features. This change set takes the v0.2 MVP from
 "runs locally" to "safe enough to merge and deploy behind a feature flag".
 
 ## What changed
 
 ### Messaging provider — explicit modes (`lib/ohm7/provider.ts`)
-- New env: `OHM7_MESSAGE_PROVIDER` with `simulated | twilio | sequencenow | disabled`.
+- New env: `DHT_MESSAGE_PROVIDER` with `simulated | twilio | sequencenow | disabled`.
 - Production refuses an unset provider value with `ProviderMisconfiguredError`.
-- Production refuses `simulated` unless `OHM7_ALLOW_SIMULATED_PROVIDER_IN_PRODUCTION=true`.
+- Production refuses `simulated` unless `DHT_ALLOW_SIMULATED_PROVIDER_IN_PRODUCTION=true`.
 - `TwilioProvider` and `SequenceNowProvider` validate env up-front; they
   throw a clear `ProviderMisconfiguredError` instead of silently faking
   success. The REST calls themselves are marked as a single explicit TODO.
@@ -19,10 +28,10 @@ Scope: NOT new features. This change set takes the v0.2 MVP from
   and audit the outcome.
 
 ### Rate limiter — explicit modes (`lib/ohm7/rate-limit.ts`)
-- New env: `OHM7_RATE_LIMIT_PROVIDER` with `memory | redis | disabled`.
+- New env: `DHT_RATE_LIMIT_PROVIDER` with `memory | redis | disabled`.
 - Production refuses an unset provider.
 - Production refuses `memory` unless
-  `OHM7_ALLOW_MEMORY_RATE_LIMIT_IN_PRODUCTION=true`.
+  `DHT_ALLOW_MEMORY_RATE_LIMIT_IN_PRODUCTION=true`.
 - `RedisRateLimiter` validates `REDIS_URL` at construction and throws on
   send until the INCR/EXPIRE wire is implemented.
 - Limits applied: `/claim/[code]`, `/claim/[code]/verify`,

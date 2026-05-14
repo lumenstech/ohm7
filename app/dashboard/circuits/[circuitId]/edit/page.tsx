@@ -1,13 +1,13 @@
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
-import { canRecordOnProperty } from "@/lib/ohm7/permissions";
-import { createCircuitSchema } from "@/lib/ohm7/zod-schemas";
-import { writeAudit } from "@/lib/ohm7/audit";
+import { requireCurrentUser } from "@/lib/dht/auth/current-user";
+import { canRecordOnProperty } from "@/lib/dht/permissions";
+import { createCircuitSchema } from "@/lib/dht/zod-schemas";
+import { writeAudit } from "@/lib/dht/audit";
 
 async function action(formData: FormData) {
   "use server";
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const circuitId = String(formData.get("circuitId") ?? "");
   const circuit = await prisma.circuit.findUnique({
     where: { id: circuitId },
@@ -61,7 +61,7 @@ export default async function EditCircuitPage({
   params: { circuitId: string };
   searchParams: { error?: string };
 }) {
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const c = await prisma.circuit.findUnique({
     where: { id: params.circuitId },
     include: { panel: true },

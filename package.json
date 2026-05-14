@@ -1,5 +1,5 @@
 {
-  "name": "ohm7",
+  "name": "servicefixes-dht",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -21,11 +21,12 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@auth0/nextjs-auth0": "^4.20.0",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
     "clsx": "^2.1.1",
     "jose": "^5.9.6",
-    "next": "14.2.18",
+    "next": "14.2.35",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^2.5.4",

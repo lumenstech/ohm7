@@ -1,12 +1,12 @@
 // Rate-limit provider abstraction.
 //
-// Selection is explicit via OHM7_RATE_LIMIT_PROVIDER:
+// Selection is explicit via DHT_RATE_LIMIT_PROVIDER:
 //   memory   — process-local, fine for local dev, NOT multi-instance-safe.
 //   redis    — placeholder interface; needs REDIS_URL. Throws at boot until
 //              wired (we never silently fake a Redis call).
 //   disabled — no-op limiter; allows everything. Useful for tests.
 //
-// In production, picking "memory" without OHM7_ALLOW_MEMORY_RATE_LIMIT_IN_PRODUCTION
+// In production, picking "memory" without DHT_ALLOW_MEMORY_RATE_LIMIT_IN_PRODUCTION
 // fails loudly so an operator doesn't run a multi-instance deployment with a
 // per-pod bucket.
 
@@ -14,8 +14,8 @@ export type RateLimitMode = "memory" | "redis" | "disabled";
 
 export type RateLimitEnv = {
   NODE_ENV?: string;
-  OHM7_RATE_LIMIT_PROVIDER?: string;
-  OHM7_ALLOW_MEMORY_RATE_LIMIT_IN_PRODUCTION?: string;
+  DHT_RATE_LIMIT_PROVIDER?: string;
+  DHT_ALLOW_MEMORY_RATE_LIMIT_IN_PRODUCTION?: string;
   REDIS_URL?: string;
 };
 
@@ -61,7 +61,7 @@ class RedisRateLimiter implements RateLimiter {
   constructor(env: RateLimitEnv) {
     if (!env.REDIS_URL) {
       throw new RateLimitMisconfiguredError(
-        "OHM7_RATE_LIMIT_PROVIDER=redis but REDIS_URL is not set",
+        "DHT_RATE_LIMIT_PROVIDER=redis but REDIS_URL is not set",
       );
     }
     // TODO(prod-redis): connect to env.REDIS_URL with ioredis or @upstash/redis
@@ -77,11 +77,11 @@ class RedisRateLimiter implements RateLimiter {
 }
 
 function resolveMode(env: RateLimitEnv): RateLimitMode {
-  const raw = (env.OHM7_RATE_LIMIT_PROVIDER ?? "").trim().toLowerCase();
+  const raw = (env.DHT_RATE_LIMIT_PROVIDER ?? "").trim().toLowerCase();
   if (raw === "memory" || raw === "redis" || raw === "disabled") return raw;
   if (env.NODE_ENV === "production") {
     throw new RateLimitMisconfiguredError(
-      "OHM7_RATE_LIMIT_PROVIDER is not set. Choose 'redis', 'memory' (single-instance only), or 'disabled' in production.",
+      "DHT_RATE_LIMIT_PROVIDER is not set. Choose 'redis', 'memory' (single-instance only), or 'disabled' in production.",
     );
   }
   return "memory";
@@ -95,9 +95,9 @@ export function resolveRateLimiter(env: RateLimitEnv = process.env): RateLimiter
     case "redis":
       return new RedisRateLimiter(env);
     case "memory": {
-      if (env.NODE_ENV === "production" && env.OHM7_ALLOW_MEMORY_RATE_LIMIT_IN_PRODUCTION !== "true") {
+      if (env.NODE_ENV === "production" && env.DHT_ALLOW_MEMORY_RATE_LIMIT_IN_PRODUCTION !== "true") {
         throw new RateLimitMisconfiguredError(
-          "OHM7_RATE_LIMIT_PROVIDER=memory in production. Use 'redis' or 'disabled', or explicitly set OHM7_ALLOW_MEMORY_RATE_LIMIT_IN_PRODUCTION=true (single-instance deployments only).",
+          "DHT_RATE_LIMIT_PROVIDER=memory in production. Use 'redis' or 'disabled', or explicitly set DHT_ALLOW_MEMORY_RATE_LIMIT_IN_PRODUCTION=true (single-instance deployments only).",
         );
       }
       return new MemoryRateLimiter();

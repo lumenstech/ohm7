@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateCircuit, evaluatePanel } from "@/lib/ohm7/compliance-rules";
+import { evaluateCircuit, evaluatePanel } from "@/lib/dht/compliance-rules";
 
 describe("evaluateCircuit", () => {
   it("flags missing protection type as info", () => {

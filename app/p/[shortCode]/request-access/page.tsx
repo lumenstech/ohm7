@@ -1,15 +1,17 @@
 import { notFound, redirect } from "next/navigation";
+import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { normalizeShortCode } from "@/lib/short-code";
-import { createGrantSchema } from "@/lib/ohm7/zod-schemas";
-import { writeAudit } from "@/lib/ohm7/audit";
+import { createGrantSchema } from "@/lib/dht/zod-schemas";
+import { writeAudit } from "@/lib/dht/audit";
+import { getOrchestrator } from "@/lib/dht/approval";
 import {
-  getProvider,
   ProviderMisconfiguredError,
   ProviderUnavailableError,
-} from "@/lib/ohm7/provider";
-import { getCurrentUser } from "@/lib/auth";
-import { rateLimit } from "@/lib/ohm7/rate-limit";
+} from "@/lib/dht/provider";
+import { OrchestratorMisconfiguredError } from "@/lib/dht/approval";
+import { getCurrentUser } from "@/lib/dht/auth/current-user";
+import { rateLimit } from "@/lib/dht/rate-limit";
 import { headers } from "next/headers";
 import { SafetyNotice } from "@/components/safety-notice";
 
@@ -65,41 +67,55 @@ async function submitRequest(formData: FormData) {
     metadata: { propertyId: grant.propertyId, requesterName: grant.requesterName, via: "scan" },
   });
 
-  // Notify owner. Provider failures should NOT silently swallow the grant —
-  // the request row exists either way; the owner just needs to be re-pinged
-  // by an admin if messaging is unavailable. Audit the outcome.
+  // Send the approval request through the orchestrator. Failures don't drop
+  // the grant — the row stays pending so an admin can re-notify. Audit the
+  // outcome so it's visible.
   const ownerPhone = sc.panel.property.owner?.phone;
   if (ownerPhone) {
-    const approveUrl = `${process.env.APP_URL ?? "http://localhost:3000"}/dashboard/access-requests/${grant.id}?action=approve`;
-    const denyUrl = `${process.env.APP_URL ?? "http://localhost:3000"}/dashboard/access-requests/${grant.id}?action=deny`;
-    try {
-      const provider = getProvider();
-      if (provider.isLive()) {
-        await provider.sendApprovalRequest({
-          channel: "whatsapp",
-          toPhone: ownerPhone,
-          body: `${grant.requesterName} (${grant.requesterCompany ?? "independent"}) is requesting access to your property record. Reason: ${grant.reason}`,
-          approveUrl,
-          denyUrl,
+    const orchestrator = getOrchestrator();
+    if (!orchestrator.isLive()) {
+      await writeAudit({
+        action: "approval.notify_skipped",
+        entityType: "AccessGrant",
+        entityId: grant.id,
+        metadata: { reason: `orchestrator ${orchestrator.mode} is not live` },
+      });
+    } else {
+      try {
+        const nonce = randomBytes(6).toString("base64url");
+        const correlationId = `${grant.propertyId}:${grant.id}:${nonce}`;
+        const rec = await orchestrator.requestApproval({
+          approverPhone: ownerPhone,
+          context: {
+            requesterName: grant.requesterName,
+            requesterOrg: grant.requesterCompany ?? "independent",
+            propertyAddress: sc.panel.property.addressLine1,
+            workSummary: grant.reason ?? "service work",
+          },
+          correlationId,
+          approverUserId: sc.panel.property.owner?.id,
         });
-      } else {
         await writeAudit({
-          action: "grant.notify_skipped",
+          action: "approval.requested",
           entityType: "AccessGrant",
           entityId: grant.id,
-          metadata: { reason: "messaging disabled" },
+          metadata: { correlationId: rec.correlationId, providerMessageId: rec.providerMessageId },
         });
-      }
-    } catch (e) {
-      if (e instanceof ProviderUnavailableError || e instanceof ProviderMisconfiguredError) {
-        await writeAudit({
-          action: "grant.notify_failed",
-          entityType: "AccessGrant",
-          entityId: grant.id,
-          metadata: { error: e.message },
-        });
-      } else {
-        throw e;
+      } catch (e) {
+        if (
+          e instanceof ProviderUnavailableError ||
+          e instanceof ProviderMisconfiguredError ||
+          e instanceof OrchestratorMisconfiguredError
+        ) {
+          await writeAudit({
+            action: "approval.notify_failed",
+            entityType: "AccessGrant",
+            entityId: grant.id,
+            metadata: { error: e.message },
+          });
+        } else {
+          throw e;
+        }
       }
     }
   }

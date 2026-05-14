@@ -1,4 +1,4 @@
-export const metadata = { title: "Invite — ohm7" };
+export const metadata = { title: "Invite — ServiceFixes DHT" };
 
 export default function InvalidInvitePage() {
   return (

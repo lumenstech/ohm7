@@ -1,13 +1,13 @@
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
-import { canRecordOnProperty } from "@/lib/ohm7/permissions";
-import { createCircuitSchema } from "@/lib/ohm7/zod-schemas";
-import { writeAudit } from "@/lib/ohm7/audit";
+import { requireCurrentUser } from "@/lib/dht/auth/current-user";
+import { canRecordOnProperty } from "@/lib/dht/permissions";
+import { createCircuitSchema } from "@/lib/dht/zod-schemas";
+import { writeAudit } from "@/lib/dht/audit";
 
 async function action(formData: FormData) {
   "use server";
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const panelId = String(formData.get("panelId") ?? "");
   const panel = await prisma.panel.findUnique({ where: { id: panelId } });
   if (!panel) redirect("/dashboard/properties");
@@ -64,7 +64,7 @@ export default async function NewCircuitPage({
   params: { panelId: string };
   searchParams: { error?: string };
 }) {
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const panel = await prisma.panel.findUnique({ where: { id: params.panelId } });
   if (!panel) notFound();
   if (!(await canRecordOnProperty(user, panel.propertyId))) notFound();

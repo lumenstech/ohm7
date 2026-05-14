@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { LANDLORD_TIERS, STICKER_PACKS } from "@/lib/ohm7/pricing";
+import { LANDLORD_TIERS, STICKER_PACKS } from "@/lib/dht/pricing";
 import { PricingEstimator } from "./estimator";
 
-export const metadata = { title: "Pricing — ohm7" };
+export const metadata = { title: "Pricing — ServiceFixes DHT" };
 
 export default function PricingPage() {
   return (
@@ -60,7 +60,7 @@ export default function PricingPage() {
       </section>
 
       <div className="mt-10">
-        <Link href="/signup" className="btn-primary">Get started</Link>
+        <Link href="/auth/login?screen_hint=signup" className="btn-primary">Get started</Link>
       </div>
     </div>
   );

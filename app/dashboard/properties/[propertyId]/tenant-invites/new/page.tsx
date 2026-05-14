@@ -1,17 +1,17 @@
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
-import { canManageProperty } from "@/lib/ohm7/permissions";
-import { writeAudit } from "@/lib/ohm7/audit";
+import { requireCurrentUser } from "@/lib/dht/auth/current-user";
+import { canManageProperty } from "@/lib/dht/permissions";
+import { writeAudit } from "@/lib/dht/audit";
 import {
   DEFAULT_INVITE_TTL_MS,
   generateInviteToken,
-} from "@/lib/ohm7/tenant-invites";
-import { createTenantInviteSchema } from "@/lib/ohm7/zod-schemas";
+} from "@/lib/dht/tenant-invites";
+import { createTenantInviteSchema } from "@/lib/dht/zod-schemas";
 
 async function action(formData: FormData) {
   "use server";
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const propertyId = String(formData.get("propertyId") ?? "");
   if (!(await canManageProperty(user, propertyId))) {
     redirect(`/dashboard/properties/${propertyId}/tenant-invites?error=${encodeURIComponent("Not allowed")}`);
@@ -59,7 +59,7 @@ export default async function NewTenantInvitePage({
   params: { propertyId: string };
   searchParams: { error?: string };
 }) {
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   if (!(await canManageProperty(user, params.propertyId))) notFound();
   const units = await prisma.unit.findMany({
     where: { propertyId: params.propertyId },

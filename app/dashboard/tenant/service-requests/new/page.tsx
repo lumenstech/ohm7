@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireRole } from "@/lib/auth";
-import { createTenantRequestSchema } from "@/lib/ohm7/zod-schemas";
-import { writeAudit } from "@/lib/ohm7/audit";
-import { tenantHasAccess } from "@/lib/ohm7/tenant-invites";
+import { requireRole } from "@/lib/dht/auth/current-user";
+import { createTenantRequestSchema } from "@/lib/dht/zod-schemas";
+import { writeAudit } from "@/lib/dht/audit";
+import { tenantHasAccess } from "@/lib/dht/tenant-invites";
 
 async function action(formData: FormData) {
   "use server";

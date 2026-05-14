@@ -3,8 +3,8 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { tenantHasAccess } from "@/lib/ohm7/tenant-invites";
-import { canAccessProperty } from "@/lib/ohm7/permissions";
+import { tenantHasAccess } from "@/lib/dht/tenant-invites";
+import { canAccessProperty } from "@/lib/dht/permissions";
 
 const hasDb = !!process.env.DATABASE_URL;
 const d = hasDb ? describe : describe.skip;
@@ -30,10 +30,10 @@ d("tenant access boundary", () => {
 
   it("tenant cannot read a property without an accepted invite", async () => {
     const owner = await prisma.user.create({
-      data: { email: `test-owner-${Date.now()}@example.com`, passwordHash: "x", role: "owner" },
+      data: { email: `test-owner-${Date.now()}@example.com`, auth0Sub: `auth0|test-${Date.now()}-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`, role: "owner" },
     });
     const tenant = await prisma.user.create({
-      data: { email: `test-tenant-${Date.now()}@example.com`, passwordHash: "x", role: "tenant" },
+      data: { email: `test-tenant-${Date.now()}@example.com`, auth0Sub: `auth0|test-${Date.now()}-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`, role: "tenant" },
     });
     const property = await prisma.property.create({
       data: { addressLine1: "TEST::no-invite", ownerUserId: owner.id },
@@ -44,10 +44,10 @@ d("tenant access boundary", () => {
 
   it("tenant with accepted UnitTenantAccess can read the property", async () => {
     const owner = await prisma.user.create({
-      data: { email: `test-owner-${Date.now()}-a@example.com`, passwordHash: "x", role: "owner" },
+      data: { email: `test-owner-${Date.now()}-a@example.com`, auth0Sub: `auth0|test-${Date.now()}-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`, role: "owner" },
     });
     const tenant = await prisma.user.create({
-      data: { email: `test-tenant-${Date.now()}-a@example.com`, passwordHash: "x", role: "tenant" },
+      data: { email: `test-tenant-${Date.now()}-a@example.com`, auth0Sub: `auth0|test-${Date.now()}-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`, role: "tenant" },
     });
     const property = await prisma.property.create({
       data: { addressLine1: "TEST::with-invite", ownerUserId: owner.id },
@@ -61,10 +61,10 @@ d("tenant access boundary", () => {
 
   it("revoked tenant access blocks reads", async () => {
     const owner = await prisma.user.create({
-      data: { email: `test-owner-${Date.now()}-r@example.com`, passwordHash: "x", role: "owner" },
+      data: { email: `test-owner-${Date.now()}-r@example.com`, auth0Sub: `auth0|test-${Date.now()}-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`, role: "owner" },
     });
     const tenant = await prisma.user.create({
-      data: { email: `test-tenant-${Date.now()}-r@example.com`, passwordHash: "x", role: "tenant" },
+      data: { email: `test-tenant-${Date.now()}-r@example.com`, auth0Sub: `auth0|test-${Date.now()}-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`, role: "tenant" },
     });
     const property = await prisma.property.create({
       data: { addressLine1: "TEST::revoked", ownerUserId: owner.id },
@@ -78,10 +78,10 @@ d("tenant access boundary", () => {
 
   it("trade with revoked grant cannot read the property", async () => {
     const owner = await prisma.user.create({
-      data: { email: `test-owner-${Date.now()}-t@example.com`, passwordHash: "x", role: "owner" },
+      data: { email: `test-owner-${Date.now()}-t@example.com`, auth0Sub: `auth0|test-${Date.now()}-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`, role: "owner" },
     });
     const trade = await prisma.user.create({
-      data: { email: `test-tenant-${Date.now()}-trade@example.com`, passwordHash: "x", role: "trade" },
+      data: { email: `test-tenant-${Date.now()}-trade@example.com`, auth0Sub: `auth0|test-${Date.now()}-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`, role: "trade" },
     });
     const property = await prisma.property.create({
       data: { addressLine1: "TEST::trade", ownerUserId: owner.id },
@@ -101,10 +101,10 @@ d("tenant access boundary", () => {
 
   it("trade with approved grant CAN read; only owner is the property owner", async () => {
     const owner = await prisma.user.create({
-      data: { email: `test-owner-${Date.now()}-ok@example.com`, passwordHash: "x", role: "owner" },
+      data: { email: `test-owner-${Date.now()}-ok@example.com`, auth0Sub: `auth0|test-${Date.now()}-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`, role: "owner" },
     });
     const trade = await prisma.user.create({
-      data: { email: `test-tenant-${Date.now()}-ok@example.com`, passwordHash: "x", role: "trade" },
+      data: { email: `test-tenant-${Date.now()}-ok@example.com`, auth0Sub: `auth0|test-${Date.now()}-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`, role: "trade" },
     });
     const property = await prisma.property.create({
       data: { addressLine1: "TEST::trade-ok", ownerUserId: owner.id },

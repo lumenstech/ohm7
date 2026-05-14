@@ -1,67 +1,103 @@
-# ohm7
+# ServiceFixes Digital Home Twin (DHT)
 
 Property-bound electrical panel records, owner-approved access, and service
-history. MVP scope based on the v0.2 design doc.
+history. v0.3.1 realignment of the v0.3 MVP.
 
 ## Quick start (local)
 
 ```bash
 pnpm install                              # install deps
-cp .env.example .env                      # set DATABASE_URL + AUTH_SECRET
+cp .env.example .env                      # set DATABASE_URL, AUTH0_*, DHT_*
 pnpm prisma:generate
-pnpm prisma:migrate                       # apply migration history
+pnpm prisma:migrate:deploy                # apply migration history
 pnpm db:seed                              # demo users, jurisdictions, panels
 pnpm dev                                  # http://localhost:3000
 ```
 
-## Production migration
+## Identity (Auth0)
 
-```bash
-pnpm prisma:migrate:deploy                # apply all pending migrations
-# DO NOT run pnpm db:seed against a production database
-```
+Auth replaces the homegrown email/password flow used in v0.3. We use the
+[`@auth0/nextjs-auth0`](https://github.com/auth0/nextjs-auth0) SDK v4. Routes
+are mounted by the middleware at `/auth/*` (login, logout, callback, etc.).
+There is no `/login` or `/signup` page — the marketing site links straight
+to the Auth0 Universal Login.
 
-See `docs/ohm7-deployment-checklist.md` for the full pre-deploy checklist
-including required env vars, provider modes, and rate-limiter modes.
+Required env vars:
 
-Demo logins (after seed): `owner@example.com` / `admin@example.com` —
-password `password123`.
+| Var | Purpose |
+|---|---|
+| `AUTH0_DOMAIN` | e.g. `your-tenant.us.auth0.com` |
+| `AUTH0_CLIENT_ID` | from the Auth0 application |
+| `AUTH0_CLIENT_SECRET` | from the Auth0 application |
+| `AUTH0_SECRET` | 32-byte hex — `openssl rand -hex 32` |
+| `APP_BASE_URL` | e.g. `http://localhost:3000` |
 
-Demo scan codes:
-- `/p/DEMOACTIVE` — an active sticker on a Square D QO panel.
-- `/p/DEMO000001` — an unassigned sticker (run the claim flow).
+In the Auth0 dashboard, on the existing for-Startups tenant:
 
-## What's implemented
+1. Applications → Create → "Regular Web Application" named "ServiceFixes DHT".
+2. Allowed Callback URLs: `http://localhost:3000/auth/callback`,
+   `https://servicefixes.com/auth/callback`.
+3. Allowed Logout URLs: `http://localhost:3000`, `https://servicefixes.com`.
+4. Allowed Web Origins: same.
+5. Authentication → Passwordless: enable Email connection. Bind to this
+   application. This is what the owner-shell claim flow uses to verify the
+   anonymous claimant's email without a password.
+6. Copy domain / client id / client secret → `.env`.
 
-- Next.js App Router + TypeScript + Tailwind + Prisma + Postgres + Zod
-- Email / password auth with JWT cookie (`jose`) and bcrypt
-- Roles: `owner`, `trade`, `tenant`, `admin`
-- Public scan view `/p/[shortCode]` with redaction
-- Property claim flow `/claim/[shortCode]` → 6-digit WhatsApp/SMS verification
-- Access-request flow `/p/[shortCode]/request-access` (never auto-claims)
-- Dashboard: properties, panels, circuits, service events, access grants
-- Tenant: service-request submit + list (cannot grant access)
-- Admin: manual override of stalled claims (audited)
-- Compliance overlay (`lib/ohm7/compliance-rules.ts`) and recall flags
-  (`lib/ohm7/recall-rules.ts`) with unit tests
-- Audit log on every important action
-- Simulated WhatsApp/SMS provider (logs to console; Twilio TODO marked)
-- Marketing pages: `/`, `/pricing`, `/for-landlords`, `/for-trades`,
-  `/for-tenants`, `/safety`
-- Pricing config is config-driven (`lib/ohm7/pricing.ts`)
+## Messaging (BSP)
+
+`MessageProvider` is a thin BSP-level interface — one job, send a WhatsApp /
+SMS message. The orchestration layer (see below) sits on top.
+
+`DHT_MESSAGE_PROVIDER` ∈ `{dialog360, gupshup, simulated, disabled}`:
+
+| Mode | Notes |
+|---|---|
+| `dialog360` | Primary BSP. `DHT_DIALOG360_API_KEY` required. REST call is TODO — throws clearly on send until wired. |
+| `gupshup` | Secondary BSP. `DHT_GUPSHUP_API_KEY` + `_APP_NAME` + `_SOURCE_NUMBER` required. Same TODO. |
+| `simulated` | Dev/test only. Records to an in-memory outbox; tests assert it. Refused in production unless `DHT_ALLOW_SIMULATED_PROVIDER_IN_PRODUCTION=true`. |
+| `disabled` | Returns `isLive()===false` and throws on send. Use during planned messaging outage. |
+
+**Twilio is removed** from the codebase. It's not our BSP strategy. WASender
+is not added (retired from SequenceNow; legacy InvoiceChats only).
+
+## Approval (workflow on top of the provider)
+
+`DHT_APPROVAL_ORCHESTRATOR` ∈ `{sequencenow, disabled}`. The
+`SequenceNowOrchestrator` owns the approval-row lifecycle: create
+`ApprovalRequest`, send a template via the BSP, handle webhook callback,
+expire / resolve. Requires `DHT_SEQUENCENOW_WEBHOOK_SECRET`.
+
+WhatsApp template name: `dht_property_access_request` (en_US) — register
+this with Meta before production. Three quick-reply buttons:
+`Approve`, `Deny`, `Approve once`.
+
+## Rate limiting
+
+`DHT_RATE_LIMIT_PROVIDER` ∈ `{memory, redis, disabled}`. Production refuses
+`memory` unless `DHT_ALLOW_MEMORY_RATE_LIMIT_IN_PRODUCTION=true`. The Redis
+limiter validates `REDIS_URL` but the INCR/EXPIRE call is TODO.
+
+Applied to: `/claim/[code]`, `/claim/[code]/finalize`,
+`/p/[code]/request-access`. Login/signup rate-limits are handled by Auth0.
+
+## Demo
+
+After `pnpm db:seed`:
+
+- Demo users: `owner@example.com` / `admin@example.com` (linked to seeded
+  Auth0 subs — actual sign-in requires the Auth0 tenant configured above).
+- Demo scan codes: `/p/DEMOACTIVE` (active), `/p/DEMO000001` (unassigned).
 
 ## Docs
 
-See `docs/`:
-
-- `ohm7-mvp.md` — feature inventory
-- `ohm7-architecture.md` — stack + data flow
-- `ohm7-permissions.md` — role matrix
-- `ohm7-claim-flow.md` — owner verification details
-- `ohm7-compliance-overlay.md` — rules engine notes + disclaimers
-- `ohm7-v0.3-hardening.md` — what changed in v0.3 and why
-- `ohm7-deployment-checklist.md` — required env vars, migration commands, provider/rate-limiter rules
-- `ohm7-open-questions.md` — unresolved items carried from v0.2 + v0.3-era
+- `docs/dht-v0.3.1-realignment.md` — what changed vs. v0.3
+- `docs/ohm7-permissions.md` — role matrix (still valid)
+- `docs/ohm7-claim-flow.md` — superseded by the Auth0 flow described above
+- `docs/ohm7-compliance-overlay.md` — rules engine
+- `docs/ohm7-deployment-checklist.md` — pre-deploy env-var checklist (v0.3 — see realignment doc for v0.3.1 deltas)
+- `docs/ohm7-v0.3-hardening.md` — historical; superseded by the realignment doc
+- `docs/ohm7-open-questions.md` — open questions
 
 ## Verification
 

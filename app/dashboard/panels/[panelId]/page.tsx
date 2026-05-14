@@ -1,16 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
-import { canAccessProperty, canRecordOnProperty } from "@/lib/ohm7/permissions";
-import { evaluateRecallRules } from "@/lib/ohm7/recall-rules";
-import { evaluatePanel } from "@/lib/ohm7/compliance-rules";
+import { requireCurrentUser } from "@/lib/dht/auth/current-user";
+import { canAccessProperty, canRecordOnProperty } from "@/lib/dht/permissions";
+import { evaluateRecallRules } from "@/lib/dht/recall-rules";
+import { evaluatePanel } from "@/lib/dht/compliance-rules";
 import { FlagBadge } from "@/components/flag-badge";
 
 export const dynamic = "force-dynamic";
 
 export default async function PanelDetailPage({ params }: { params: { panelId: string } }) {
-  const user = await requireUser();
+  const user = await requireCurrentUser();
   const panel = await prisma.panel.findUnique({
     where: { id: params.panelId },
     include: {
