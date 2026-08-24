@@ -16,6 +16,7 @@ export async function SiteHeader() {
           <Link href="/for-tenants" className="hover:text-ink-900">Tenants</Link>
           <Link href="/safety" className="hover:text-ink-900">Safety</Link>
           <Link href="/pricing" className="hover:text-ink-900">Pricing</Link>
+          <Link href="/network" className="hover:text-ink-900">Network</Link>
         </nav>
         <div className="flex items-center gap-2">
           {user ? (

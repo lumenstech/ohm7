@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { projectNetwork } from "@/lib/project-network";
 
 export default function HomePage() {
   return (
@@ -71,6 +72,48 @@ export default function HomePage() {
               under 30 seconds.
             </Step>
           </ol>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 py-16">
+        <div className="rounded-2xl border border-ink-200 bg-ink-50 p-6 sm:p-8">
+          <div className="max-w-3xl">
+            <span className="badge-info badge mb-4">Lumens project network</span>
+            <h2 className="text-2xl font-semibold tracking-tight text-ink-900">
+              Related tools and services.
+            </h2>
+            <p className="mt-3 text-ink-600">
+              Explore focused projects across electrical service, repair operations, parts
+              intelligence, private AI, backup, testing, video, healthcare workflows, commerce,
+              and technology intelligence.
+            </p>
+          </div>
+          <div className="mt-6 flex flex-wrap gap-2">
+            {projectNetwork.map((project) =>
+              project.current ? (
+                <Link
+                  key={project.domain}
+                  href={project.href}
+                  className="rounded-full border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-bolt-300 hover:text-bolt-700"
+                >
+                  {project.domain}
+                </Link>
+              ) : (
+                <a
+                  key={project.domain}
+                  href={project.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-bolt-300 hover:text-bolt-700"
+                >
+                  {project.domain}
+                </a>
+              ),
+            )}
+          </div>
+          <Link href="/network" className="mt-6 inline-flex font-semibold text-bolt-700 hover:text-bolt-800">
+            See what each project does →
+          </Link>
         </div>
       </section>
     </>
